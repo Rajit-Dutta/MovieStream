@@ -13,12 +13,12 @@ type Ranking struct {
 }
 
 type Movies struct {
-	ID          bson.ObjectID `bson:"_id" json:"_id"`
+	ID          bson.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
 	ImdbID      string        `bson:"imdb_id" json:"imdb_id" validate:"required"`
-	Title       string        `bson:"title" json:"title" validate:"required, min=2, max=500"`
+	Title       string        `bson:"title" json:"title" validate:"required,min=2,max=500"`
 	PosterPath  string        `bson:"poster_path" json:"poster_path" validate:"required,url"`
-	YouTubeID   string        `bson:"youtube_id" json:"youtube_id" validate:"required,url"`
-	Genre       []Genre       `bson:"genre" json:"genre" validate:"required,dive"`
+	YouTubeID   string        `bson:"youtube_id" json:"youtube_id" validate:"required"`
+	Genre       []Genre       `bson:"genre" json:"genre" validate:"dive,required"`
 	AdminReview string        `bson:"admin_review" json:"admin_review"`
-	Ranking     Ranking       `bson:"ranking" json:"ranking" validate:"required,dive"`
+	Ranking     Ranking       `bson:"ranking" json:"ranking" validate:"required"`
 }

@@ -18,8 +18,10 @@ func main() {
 	})
 
 	router.GET("/movies", controllers.GetMovies())
+	router.GET("/movie/:imdb_id", controllers.GetMovie())
+	router.POST("/addMovie", controllers.AddMovie())
 
-	if err := router.Run(":8080"); err != nil {
+	if err := router.Run(":8082"); err != nil {
 		log.Fatal("Server is not yet hosted in :8080")
 	}
 }
