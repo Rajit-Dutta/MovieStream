@@ -7,6 +7,7 @@ import (
 
 	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/database"
 	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/models"
+	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -30,16 +31,17 @@ func RegisterUser() gin.HandlerFunc {
 
 		var user models.User
 
+		if err := ctx.ShouldBindJSON(&user); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Problem in getting user input"})
+			return
+		}
+
 		hashedPassword, err := hashPassword(user.Password)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Problem in hashing password"})
 			return
 		}
 
-		if err := ctx.ShouldBindJSON(&user); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Problem in getting user input"})
-			return
-		}
 		if err := validate.Struct(user); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Validation error"})
 			return
@@ -97,5 +99,29 @@ func LoginUser() gin.HandlerFunc {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Password mismatch"})
 			return
 		}
+
+		accessToken, refreshToken, err := utils.GenerateAllTokens(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.Role, foundUser.UserID)
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate tokens"})
+			return
+		}
+
+		err = utils.UpdateALlTokens(foundUser.UserID, accessToken, refreshToken)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update tokens"})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, models.UserResponse{
+			UserId:          foundUser.UserID,
+			FirstName:       foundUser.FirstName,
+			LastName:        foundUser.LastName,
+			Email:           foundUser.Email,
+			Role:            foundUser.Role,
+			Token:           accessToken,
+			RefreshToken:    refreshToken,
+			FavouriteGenres: foundUser.FavouriteGenres,
+		})
 	}
 }

@@ -36,7 +36,7 @@ func GenerateAllTokens(email, firstName, lastName, role, userId string) (string,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 		},
 	}
-	tokens := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	tokens := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err := tokens.SignedString([]byte(SECRET_KEY))
 	if err != nil {
 		return "", "", err
@@ -54,7 +54,7 @@ func GenerateAllTokens(email, firstName, lastName, role, userId string) (string,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 		},
 	}
-	refreshTokens := jwt.NewWithClaims(jwt.SigningMethodES256, refreshClaims)
+	refreshTokens := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	signedRefreshToken, err := refreshTokens.SignedString([]byte(SECRET_REFRESH_KEY))
 	if err != nil {
 		return "", "", err
@@ -63,7 +63,7 @@ func GenerateAllTokens(email, firstName, lastName, role, userId string) (string,
 	return signedToken, signedRefreshToken, nil
 }
 
-func UpdateALlTokens(userId, token, refreshToken string, client *mongo.Client) (err error) {
+func UpdateALlTokens(userId, token, refreshToken string) (err error) {
 	var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 

@@ -21,6 +21,7 @@ func main() {
 	router.GET("/movie/:imdb_id", controllers.GetMovie())
 	router.POST("/addMovie", controllers.AddMovie())
 	router.POST("/registerUser", controllers.RegisterUser())
+	router.POST("/loginUser", controllers.LoginUser())
 
 	if err := router.Run(":8082"); err != nil {
 		log.Fatal("Server is not yet hosted in :8080")
