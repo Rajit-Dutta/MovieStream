@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/controllers"
+	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/routes"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,11 +17,8 @@ func main() {
 		})
 	})
 
-	router.GET("/movies", controllers.GetMovies())
-	router.GET("/movie/:imdb_id", controllers.GetMovie())
-	router.POST("/addMovie", controllers.AddMovie())
-	router.POST("/registerUser", controllers.RegisterUser())
-	router.POST("/loginUser", controllers.LoginUser())
+	routes.SetUpProtectedRoutes(router)
+	routes.SetUpUnProtectedRoutes(router)
 
 	if err := router.Run(":8082"); err != nil {
 		log.Fatal("Server is not yet hosted in :8080")
