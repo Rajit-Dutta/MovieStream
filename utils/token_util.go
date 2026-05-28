@@ -119,3 +119,16 @@ func GetAccessToken(c *gin.Context) (string, error) {
 
 	return tokenString, nil
 }
+
+func GetUserIDFromContext(c *gin.Context) (string, error) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		return "", errors.New("userId does not exists in this context")
+	}
+	id, ok := userId.(string)
+	if !ok {
+		return "", errors.New("unable to retrieve userId")
+	}
+
+	return id, nil
+}

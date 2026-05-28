@@ -6,11 +6,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/database"
 	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/models"
+	"github.com/Rajit-Dutta/MagicStream/Server/MagicStreamServer/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -264,4 +266,61 @@ func GetUsersFavouriteGenres(userId string) ([]string, error) {
 	}
 
 	return genreNames, nil
+}
+
+func GetRecommendedMovies() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		userId, err := utils.GetUserIDFromContext(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, bson.M{"error": "UserID not found"})
+		}
+
+		favGenres, err := GetUsersFavouriteGenres(userId)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, bson.M{"error": "Fav Genres not retrieved"})
+		}
+
+		err = godotenv.Load(".env")
+		if err != nil {
+			log.Println("Warning: No .env file found")
+		}
+
+		var recommendedMovieLimitVal int64 = 5
+		recommendedMovieLimitStr := os.Getenv("RECOMMENDED_MOVIE_LIMIT")
+
+		if recommendedMovieLimitStr != "" {
+			recommendedMovieLimitVal, _ = strconv.ParseInt(recommendedMovieLimitStr, 10, 64)
+		}
+
+		findOptions := options.Find()
+		findOptions.SetSort(bson.D{{Key: "ranking.ranking_val", Value: 1}})
+		findOptions.SetLimit(recommendedMovieLimitVal)
+
+		filter := bson.D{
+			{
+				Key: "genre.genre_name", Value: bson.D{
+					{Key: "$in", Value: favGenres},
+				},
+			},
+		}
+
+		cursor, err := movieCollection.Find(c, filter, findOptions)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching recommended movies"})
+			return
+		}
+		defer cursor.Close(c)
+
+		var recommendedMovies []string
+
+		if err := cursor.All(c, &recommendedMovies); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, recommendedMovies)
+	}
 }
