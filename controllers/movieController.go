@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -229,7 +230,7 @@ func GetUsersFavouriteGenres(userId string) ([]string, error) {
 	var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
-	filter := bson.D{{Key: "user_id", Value: userId}}
+	filter := bson.M{"user_id": userId}
 
 	projection := bson.M{
 		"favourite_genres.genre_name": 1,
@@ -270,18 +271,19 @@ func GetUsersFavouriteGenres(userId string) ([]string, error) {
 
 func GetRecommendedMovies() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-		defer cancel()
-
 		userId, err := utils.GetUserIDFromContext(ctx)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, bson.M{"error": "UserID not found"})
+			return
 		}
 
 		favGenres, err := GetUsersFavouriteGenres(userId)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, bson.M{"error": "Fav Genres not retrieved"})
+			return
 		}
+		fmt.Println("USER ID:", userId)
+		fmt.Println("FAV GENRES:", favGenres)
 
 		err = godotenv.Load(".env")
 		if err != nil {
@@ -296,16 +298,17 @@ func GetRecommendedMovies() gin.HandlerFunc {
 		}
 
 		findOptions := options.Find()
-		findOptions.SetSort(bson.D{{Key: "ranking.ranking_val", Value: 1}})
+		findOptions.SetSort(bson.D{{Key: "ranking.ranking_value", Value: 1}})
 		findOptions.SetLimit(recommendedMovieLimitVal)
 
-		filter := bson.D{
-			{
-				Key: "genre.genre_name", Value: bson.D{
-					{Key: "$in", Value: favGenres},
-				},
+		filter := bson.M{
+			"genre.genre_name": bson.M{
+				"$in": favGenres,
 			},
 		}
+
+		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
 		cursor, err := movieCollection.Find(c, filter, findOptions)
 		if err != nil {
@@ -314,7 +317,7 @@ func GetRecommendedMovies() gin.HandlerFunc {
 		}
 		defer cursor.Close(c)
 
-		var recommendedMovies []string
+		var recommendedMovies []models.Movies
 
 		if err := cursor.All(c, &recommendedMovies); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
