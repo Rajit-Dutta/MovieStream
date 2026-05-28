@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
+	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -100,6 +101,16 @@ func AddMovie() gin.HandlerFunc {
 
 func AdminReviewUpdate() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		role, err := utils.GetRoleFromContext(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"message": "User role could not be retrieved"})
+			return
+		}
+		if role != "ADMIN" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"message": "Not an ADMIN"})
+			return
+		}
+
 		movieID := ctx.Param("imdb_id")
 		if movieID == "" {
 			ctx.JSON(http.StatusBadRequest, gin.H{"message": "error: Movie ID is required"})
@@ -122,6 +133,8 @@ func AdminReviewUpdate() gin.HandlerFunc {
 		sentiment, rankval, err := GetReviewRanking(req.AdminReview)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting review ranking"})
+			fmt.Println(sentiment)
+			fmt.Println(rankval)
 			return
 		}
 
@@ -182,7 +195,11 @@ func GetReviewRanking(admin_review string) (string, int, error) {
 		return "", 0, errors.New("API KEY missing")
 	}
 
-	llm, err := openai.New(openai.WithToken(GROQ_api_key))
+	llm, err := openai.New(
+		openai.WithToken(GROQ_api_key),
+		openai.WithModel("llama-3.1-8b-instant"),
+		openai.WithBaseURL("https://api.groq.com/openai/v1"),
+	)
 	if err != nil {
 		return "", 0, err
 	}
@@ -190,10 +207,30 @@ func GetReviewRanking(admin_review string) (string, int, error) {
 	base_prompt_template := os.Getenv("BASE_PROMPT_TEMPLATE")
 	base_prompt := strings.Replace(base_prompt_template, "{rankings}", sentimentDelimited, 1)
 
-	response, err := llm.Call(context.Background(), base_prompt+admin_review)
+	completion, err := llm.GenerateContent(
+		context.Background(),
+		[]llms.MessageContent{
+			{
+				Role: llms.ChatMessageTypeHuman,
+				Parts: []llms.ContentPart{
+					llms.TextContent{
+						Text: base_prompt + admin_review,
+					},
+				},
+			},
+		},
+	)
+
 	if err != nil {
 		return "", 0, err
 	}
+
+	if len(completion.Choices) == 0 {
+		return "", 0, errors.New("no response from model")
+	}
+
+	response := strings.TrimSpace(completion.Choices[0].Content)
+	fmt.Println("RAW:", response)
 	rankVal := 0
 
 	for _, ranking := range rankings {
